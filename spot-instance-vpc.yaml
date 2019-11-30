@@ -1,0 +1,179 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Multi AZ ec2 cloudformation template
+# Metadata:
+
+Parameters: 
+    ec2ami:
+      Description: 'latest amz ami id'
+      Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+      Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
+    azA:
+      Type: AWS::EC2::AvailabilityZone::Name
+      Default: eu-west-1a
+    stackName:
+      Description: 'Stackname used to tag ressources' 
+      Type: String
+    productionTag:
+      Description: 'Production Tag used to tag ressources' 
+      Default: dev
+      Type: String
+
+
+    
+# Mappings: 
+
+# Conditions: 
+
+Resources: 
+
+# NETWORKING
+    VPC:
+      Type: AWS::EC2::VPC
+      Properties:
+        CidrBlock: 10.0.0.0/16
+        EnableDnsSupport: true
+        Tags:
+          - Key: Name
+            Value: !Join ['-', [!Ref stackName, VPC]]
+          - Key: Production
+            Value: !Ref productionTag
+    igw:
+      Type: AWS::EC2::InternetGateway
+      Properties:
+        Tags:
+          - Key: Name
+            Value: !Join ['-', [!Ref stackName, IGW]]
+          - Key: Production
+            Value: !Ref productionTag
+    AttachGateway:
+      Type: AWS::EC2::VPCGatewayAttachment
+      Properties:
+        VpcId: !Ref VPC
+        InternetGatewayId: !Ref igw
+
+# ZONE A
+    routeTableAZa:
+      Type: AWS::EC2::RouteTable
+      Properties:
+        VpcId: !Ref VPC
+        Tags:
+          - Key: Name
+            Value: !Join ['-', [!Ref stackName, TableAZa]]
+          - Key: Production
+            Value: !Ref productionTag
+
+    defaultrouteAZa:
+      Type: AWS::EC2::Route
+      Properties:
+        RouteTableId: !Ref routeTableAZa
+        DestinationCidrBlock: 0.0.0.0/0
+        GatewayId: !Ref igw
+
+    routeTableAssocAZa:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        SubnetId: !Ref subAZa
+        RouteTableId: !Ref routeTableAZa
+    
+    subAZa:
+      Type: AWS::EC2::Subnet
+      Properties:
+        AvailabilityZone: !Ref azA
+        # !Join
+        #   - ''
+        #   - - !Ref 'AWS::Region'
+        #     - 'a'
+        VpcId: !Ref VPC
+        CidrBlock: 10.0.0.0/24
+        MapPublicIpOnLaunch: true
+        Tags:
+          - Key: Name
+            Value: !Join ['-', [!Ref stackName, sub-az-a]]
+          - Key: Production
+            Value: !Ref productionTag
+
+
+# SECURITY GROUPS
+    SG:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupName: !Join ['-', [!Ref stackName,ssh-sg]]
+        GroupDescription: !Join ['-', [!Ref stackName,ssh-sg]]
+        VpcId: !Ref VPC
+        SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: 22
+            ToPort: 22
+            CidrIp: 0.0.0.0/0
+          - IpProtocol: tcp
+            FromPort: 80
+            ToPort: 80
+            CidrIp: 0.0.0.0/0
+          - IpProtocol: tcp
+            FromPort: 443
+            ToPort: 443
+            CidrIp: 0.0.0.0/0
+        Tags:
+          - Key: Name
+            Value: !Join ['-', [!Ref stackName, SG]]
+          - Key: Production
+            Value: !Ref productionTag
+    
+
+    LaunchTemplate:
+      Type: AWS::EC2::LaunchTemplate
+      Properties: 
+        LaunchTemplateData: 
+          ImageId: !Ref ec2ami
+          InstanceMarketOptions: 
+            MarketType: spot
+          InstanceType: 't2.micro'
+          SecurityGroupIds: 
+            - !Ref SG
+        LaunchTemplateName: Template
+
+
+# INSTANCES
+    InstanceAZa:
+      Type: AWS::EC2::Instance
+      Properties:
+        AvailabilityZone: !Ref azA
+        SubnetId: !Ref subAZa
+        KeyName: 'MBP'
+        DisableApiTermination: false
+        LaunchTemplate: 
+          # LaunchTemplateId: 
+          LaunchTemplateName: Template
+          Version: !GetAtt LaunchTemplate.LatestVersionNumber
+          # !Ref LaunchTemplate
+        ImageId: ami-0932ca87bb7ae6b14
+        InstanceType: 't2.medium'
+        Monitoring: true
+        SecurityGroupIds:
+          - !Ref SG
+        UserData: !Base64 |
+          # DOES NOT WORK
+          # !/bin/bash -ex
+          yum -y install zsh 
+        Tags:
+          - Key: Name
+            Value: !Join ['-', [!Ref stackName, instance-az-a]]
+          - Key: Production
+            Value: !Ref productionTag
+
+
+
+# ELASTIC IPS
+    elasticIPA:
+      Type: AWS::EC2::EIP
+      Properties:
+        Domain: vpc
+        InstanceId: !Ref InstanceAZa
+
+
+
+Outputs:
+  AnsibleTowerIP:
+    Value: !Ref elasticIPA
+
+  
