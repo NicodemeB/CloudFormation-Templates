@@ -17,6 +17,10 @@ Parameters:
       Description: 'Production Tag used to tag ressources' 
       Default: dev
       Type: String
+    keyPair:
+      Description: Keypair name
+      Type: AWS::EC2::KeyPair::KeyName
+      Default: 'MBP'
 
 
     

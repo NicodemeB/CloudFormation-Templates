@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Multi AZ ec2 cloudformation template
+# Metadata:
+
+Parameters: 
+    kaliami:
+      Description: 'Kali ami'
+      Type: 'AWS::EC2::Image::Id'
+      Default: 'ami-0c95c1ac08c178d00'
+    azA:
+      Type: AWS::EC2::AvailabilityZone::Name
+      Default: eu-west-1a
+    productionTag:
+      Description: 'Production Tag used to tag ressources' 
+      Default: dev
+      Type: String
+    keyPair:
+      Description: Keypair name
+      Type: AWS::EC2::KeyPair::KeyName
+      Default: 'MBP'
+    VPC:
+      Description: VPC Id in which launch stack
+      Type: AWS::EC2::VPC::Id
+      Default: 'vpc-0a1d98844dd5e9d0c'
+    SubnetID:
+      Description: 'ID of the subnet'
+      Type: AWS::EC2::Subnet::Id
+      Default: subnet-03532cb073777fbe8
+
+
+    
+# Mappings: 
+
+# Conditions: 
+
+Resources: 
+
+# SECURITY GROUPS
+    SG:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupName: !Join ['-', [!Ref "AWS::StackName",ssh-sg]]
+        GroupDescription: !Join ['-', [!Ref "AWS::StackName",ssh-sg]]
+        VpcId: !Ref VPC
+        SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: 22
+            ToPort: 22
+            CidrIp: 0.0.0.0/0
+        Tags:
+          - Key: Name
+            Value: !Join ['-', [!Ref "AWS::StackName", SG]]
+          - Key: Production
+            Value: !Ref productionTag
+    
+
+    LaunchTemplate:
+      Type: AWS::EC2::LaunchTemplate
+      Properties: 
+        LaunchTemplateData: 
+          ImageId: !Ref kaliami
+          InstanceMarketOptions: 
+            MarketType: spot
+          InstanceType: 't2.micro'
+          SecurityGroupIds: 
+            - !Ref SG
+        LaunchTemplateName: Template-kali
+
+
+# INSTANCES
+    InstanceAZa:
+      Type: AWS::EC2::Instance
+      Properties:
+        AvailabilityZone: !Ref azA
+        SubnetId: !Ref SubnetID
+        KeyName: !Ref keyPair
+        # DisableApiTermination: false
+        LaunchTemplate: 
+          # LaunchTemplateId: 
+          LaunchTemplateName: Template-kali
+          Version: !GetAtt LaunchTemplate.LatestVersionNumber
+          # !Ref LaunchTemplate
+        # ImageId: ami-0932ca87bb7ae6b14
+        InstanceType: 't2.micro'
+        Monitoring: true
+        SecurityGroupIds:
+          - !Ref SG
+        Tags:
+          - Key: Name
+            Value: !Join ['-', [!Ref "AWS::StackName", instance-az-a]]
+          - Key: Production
+            Value: !Ref productionTag
+
+# ELASTIC IPS
+    elasticIPA:
+      Type: AWS::EC2::EIP
+      Properties:
+        Domain: vpc
+        InstanceId: !Ref InstanceAZa
+
+    DNSKali:
+      Type: AWS::Route53::RecordSet
+      Properties:
+        HostedZoneId : Z3ETOBLPE65CM4
+        Name: kali.nicode.me
+        ResourceRecords:
+        - !Ref elasticIPA
+        TTL: '60'
+        Type: A
+
+
+Outputs:
+  AnsibleTowerIP:
+    Value: !Ref elasticIPA
+
+  

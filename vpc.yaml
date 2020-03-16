@@ -19,6 +19,11 @@ Parameters:
     productionTag:
       Description: 'Production Tag used to tag ressources' 
       Type: String
+      Default: dev
+    keyPair:
+      Description: Keypair name
+      Type: AWS::EC2::KeyPair::KeyName
+      Default: 'MBP'
 
 
     
@@ -153,52 +158,68 @@ Resources:
             Value: !Join ['-', [!Ref stackName, SG]]
           - Key: Production
             Value: !Ref productionTag
+    webSG:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupName: !Join ['-', [!Ref stackName,web-sg]]
+        GroupDescription: !Join ['-', [!Ref stackName,web-sg]]
+        VpcId: !Ref VPC
+        SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: 80
+            ToPort: 80
+            CidrIp: 0.0.0.0/0
+        Tags:
+          - Key: Name
+            Value: !Join ['-', [!Ref stackName, SG]]
+          - Key: Production
+            Value: !Ref productionTag
     
 
-# # INSTANCES
-#     InstanceAZa:
-#       Type: AWS::EC2::Instance
-#       Properties:
-#         AvailabilityZone: !Ref azA
-#         SubnetId: !Ref subAZa
-#         KeyName: 'MBP'
-#         DisableApiTermination: false
-#         ImageId: !Ref ec2ami
-#         InstanceType: 't2.micro'
-#         Monitoring: true
-#         SecurityGroupIds:
-#           - !Ref sshSG
-#         UserData: !Base64 |
-#           # DOES NOT WORK
-#           # !/bin/bash -ex
-#           # yum -y install htop 
-#         Tags:
-#           - Key: Name
-#             Value: !Join ['-', [!Ref stackName, instance-az-a]]
-#           - Key: Production
-#             Value: !Ref productionTag
+# INSTANCES
+    # InstanceAZa:
+    #   Type: AWS::EC2::Instance
+    #   Properties:
+    #     AvailabilityZone: !Ref azA
+    #     SubnetId: !Ref subAZa
+    #     KeyName: !Ref keyPair
+    #     DisableApiTermination: false
+    #     ImageId: !Ref ec2ami
+    #     InstanceType: 't2.micro'
+    #     Monitoring: true
+    #     SecurityGroupIds:
+    #       - !Ref sshSG
+    #     UserData: !Base64 |
+    #       # DOES NOT WORK
+    #       # !/bin/bash -ex
+    #       # yum -y install htop 
+    #     Tags:
+    #       - Key: Name
+    #         Value: !Join ['-', [!Ref stackName, instance-az-a]]
+    #       - Key: Production
+    #         Value: !Ref productionTag
 
-#     InstanceAZb:
-#       Type: AWS::EC2::Instance
-#       Properties:
-#         AvailabilityZone: !Ref azB
-#         SubnetId: !Ref subAZb
-#         KeyName: 'MBP'
-#         DisableApiTermination: false
-#         ImageId: !Ref ec2ami
-#         InstanceType: 't2.micro'
-#         Monitoring: true
-#         SecurityGroupIds:
-#           - !Ref sshSG
-#         UserData: !Base64 |
-#           # DOES NOT WORK 
-#           # !/bin/bash -ex
-#           # yum -y install htop 
-#         Tags:
-#           - Key: Name
-#             Value: !Join ['-', [!Ref stackName, instance-az-b]]
-#           - Key: Production
-#             Value: !Ref productionTag
+    # InstanceAZb:
+    #   Type: AWS::EC2::Instance
+    #   Properties:
+    #     AvailabilityZone: !Ref azB
+    #     SubnetId: !Ref subAZb
+    #     KeyName: !Ref keyPair
+    #     DisableApiTermination: false
+    #     ImageId: !Ref ec2ami
+    #     InstanceType: 't2.micro'
+    #     Monitoring: true
+    #     SecurityGroupIds:
+    #       - !Ref sshSG
+    #     UserData: !Base64 |
+    #       # DOES NOT WORK 
+    #       # !/bin/bash -ex
+    #       # yum -y install htop 
+    #     Tags:
+    #       - Key: Name
+    #         Value: !Join ['-', [!Ref stackName, instance-az-b]]
+    #       - Key: Production
+    #         Value: !Ref productionTag
 
 # # ELASTIC IPS
 #     elasticIPA:
