@@ -1,6 +1,6 @@
-
-Description:  This template deploys a VPC, with a pair of public subnets spread
-  across two Availability Zones. It deploys an internet gateway, with a default
+Description: > 
+  This template deploys a VPC, with a pair of public and private subnets spread
+  across two Availability Zones. It deploys an internet and NAT gateway, with a default
   route on the public subnets.
 
 Parameters:
@@ -109,7 +109,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName} Public Routes
+          Value: !Sub ${EnvironmentName} Public Routes (AZ1)
 
   DefaultPublicRoute1:
     Type: AWS::EC2::Route
@@ -131,7 +131,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName} Public Routes
+          Value: !Sub ${EnvironmentName} Public Routes (AZ2)
 
   DefaultPublicRoute2:
     Type: AWS::EC2::Route
@@ -185,7 +185,7 @@ Resources:
         Ref: VPC
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName} Private Routes
+          Value: !Sub ${EnvironmentName} Private Routes (AZ1)
   
   PrivateRouteTable2: 
     Type: AWS::EC2::RouteTable
@@ -194,7 +194,7 @@ Resources:
         Ref: VPC
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName} Private Routes
+          Value: !Sub ${EnvironmentName} Private Routes (AZ2)
 
   DefaultRoutePrivateSubnet1:
     Type: AWS::EC2::Route
@@ -217,13 +217,13 @@ Resources:
   PrivateSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref PublicRouteTable1
+      RouteTableId: !Ref PrivateRouteTable1
       SubnetId: !Ref PrivateSubnet1
 
   PrivateSubnet2RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref PublicRouteTable2
+      RouteTableId: !Ref PrivateRouteTable2
       SubnetId: !Ref PrivateSubnet2
 
 
@@ -233,6 +233,9 @@ Resources:
       GroupName: "no-ingress-sg"
       GroupDescription: "Security group with no ingress rule"
       VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: no-ingress-sg
 
   HTTPSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -245,6 +248,9 @@ Resources:
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0 
+      Tags:
+        - Key: Name
+          Value: http-sg
 
   HTTPPrivateSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -258,6 +264,9 @@ Resources:
           ToPort: 80
           # CidrIp: 0.0.0.0/0 
           SourceSecurityGroupId: !Ref HTTPSecurityGroup
+      Tags:
+        - Key: Name
+          Value: http-sg-private
 
   SshSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -270,6 +279,9 @@ Resources:
           FromPort: 22
           ToPort: 22
           CidrIp: 0.0.0.0/0 
+      Tags:
+        - Key: Name
+          Value: ssh-sg
 
   OpenBarSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -279,9 +291,12 @@ Resources:
       VpcId: !Ref VPC
       SecurityGroupIngress: 
         - IpProtocol: -1
-          FromPort: 0
-          ToPort: 6553
+          # FromPort: 0
+          # ToPort: 6553
           CidrIp: 0.0.0.0/0 
+      Tags:
+          - Key: Name
+            Value: openbar-sg
 
 Outputs:
   VPC:
@@ -323,3 +338,7 @@ Outputs:
   NoIngressSecurityGroup:
     Description: Security group with no ingress rule
     Value: !Ref NoIngressSecurityGroup
+  
+  OpenBarSecurityGroup:
+    Description: Security group with no ingress rule
+    Value: !Ref OpenBarSecurityGroup
