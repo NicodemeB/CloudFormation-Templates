@@ -55,6 +55,36 @@ Parameters:
     AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
     ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
 
+  CreateVPCPeering:
+    Description: Create VPC peering?
+    Type: String
+    Default: "False"
+    AllowedValues: 
+      - "True"
+      - "False"
+
+  PeeredVPCID:
+    Description: ID of the VPC to be peered
+    Type: String
+    Default: "To be defined"
+
+  PeeredVPCRegion:
+    Description: Region of the VPC to be peered
+    Type: String
+    Default: "To be defined"
+  
+  PeeredVPCCIDR:
+    Description: CIDR of the VPC to be peered
+    Type: String
+    Default: '196.168.0.0/16'
+    MinLength: '9'
+    MaxLength: '18'
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+
+Conditions: 
+  CreateVPCPeeering: !Equals [ !Ref CreateVPCPeering, "True" ]
+
 Resources:
   VPC:
     Type: AWS::EC2::VPC
@@ -317,6 +347,36 @@ Resources:
       Tags:
           - Key: Name
             Value: openbar-sg
+
+
+  VPCPeeringConnection:
+    Type: 'AWS::EC2::VPCPeeringConnection'
+    Condition: CreateVPCPeeering
+    Properties:
+      VpcId: !Ref VPC
+      PeerRegion: !Ref PeeredVPCRegion
+      PeerVpcId: !Ref PeeredVPCID
+
+  PeeredVPCRoutePrivateSubnet1:
+    Type: AWS::EC2::Route
+    Condition: CreateVPCPeeering
+    Properties:
+      RouteTableId:
+        Ref: PrivateRouteTable1
+      DestinationCidrBlock: !Ref PeeredVPCCIDR
+      VpcPeeringConnectionId:
+        Ref: VPCPeeringConnection
+
+  PeeredVPCRoutePrivateSubnet2:
+    Type: AWS::EC2::Route
+    Condition: CreateVPCPeeering
+    Properties:
+      RouteTableId:
+        Ref: PrivateRouteTable2
+      DestinationCidrBlock: !Ref PeeredVPCCIDR
+      VpcPeeringConnectionId:
+        Ref: VPCPeeringConnection
+      
 
 Outputs:
   VPC:
