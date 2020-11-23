@@ -17,7 +17,7 @@ Parameters:
   PublicSubnet1CIDR:
     Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
     Type: String
-    Default: 10.O.0.0/24
+    Default: 10.0.0.0/24
 
   PublicSubnet2CIDR:
     Description: Please enter the IP range (CIDR notation) for the public subnet in the second Availability Zone
@@ -28,7 +28,7 @@ Parameters:
   PrivateSubnet1CIDR:
     Description: Please enter the IP range (CIDR notation) for the Private subnet in the first Availability Zone
     Type: String
-    Default: 10.O.1.0/24
+    Default: 10.0.1.0/24
 
   PrivateSubnet2CIDR:
     Description: Please enter the IP range (CIDR notation) for the Private subnet in the second Availability Zone
@@ -103,7 +103,6 @@ Resources:
         - Key: Name
           Value: !Sub ${EnvironmentName} Private Subnet (AZ2)
 
-
   PublicRouteTable1:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -153,6 +152,80 @@ Resources:
     Properties:
       RouteTableId: !Ref PublicRouteTable2
       SubnetId: !Ref PublicSubnet2
+  
+
+  EIPNatGateway1:
+    Type: AWS::EC2::EIP
+
+  EIPNatGateway2:
+    Type: AWS::EC2::EIP
+
+  NATGatewayPublicSubnet1:
+    Type: AWS::EC2::NatGateway
+    Properties: 
+      AllocationId:
+        Fn::GetAtt:
+        - EIPNatGateway1
+        - AllocationId
+      SubnetId: !Ref PublicSubnet1 # not required. The id of the subnet to create the NAT Gateway in. This is required with the present option.
+
+  NATGatewayPublicSubnet2:
+    Type: AWS::EC2::NatGateway
+    Properties: 
+      AllocationId:
+        Fn::GetAtt:
+        - EIPNatGateway2
+        - AllocationId
+      SubnetId: !Ref PublicSubnet2 # not required. The id of the subnet to create the NAT Gateway in. This is required with the present option.
+
+  PrivateRouteTable1: 
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: 
+        Ref: VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes
+  
+  PrivateRouteTable2: 
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: 
+        Ref: VPC
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName} Private Routes
+
+  DefaultRoutePrivateSubnet1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId:
+        Ref: PrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+        Ref: NATGatewayPublicSubnet1
+
+  DefaultRoutePrivateSubnet2:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId:
+        Ref: PrivateRouteTable2
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+        Ref: NATGatewayPublicSubnet2
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable1
+      SubnetId: !Ref PrivateSubnet1
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable2
+      SubnetId: !Ref PrivateSubnet2
+
 
   NoIngressSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -184,7 +257,7 @@ Resources:
           FromPort: 80
           ToPort: 80
           # CidrIp: 0.0.0.0/0 
-          DestinationSecurityGroupId: !Ref HTTPSecurityGroup
+          SourceSecurityGroupId: !Ref HTTPSecurityGroup
 
   SshSecurityGroup:
     Type: AWS::EC2::SecurityGroup
